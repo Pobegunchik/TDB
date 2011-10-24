@@ -27,6 +27,7 @@
   
   <properties>
     <ver.arq>2.8.9-incubating-TALIS-RC1</ver.arq>
+    <ver.jena>2.6.5-incubating-SNAPSHOT</ver.jena>
     <this.root>${project.artifactId}-${project.version}</this.root>
     <assembly.root.name>apache-${project.artifactId}-${project.version}</assembly.root.name>
   </properties>
@@ -48,14 +49,14 @@
     </dependency>
 
      <dependency>
-      <groupId>com.hp.hpl.jena</groupId>
-      <artifactId>jena</artifactId>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-core</artifactId>
       <version>${ver.jena}</version>
     </dependency>
 
     <dependency>
-      <groupId>com.hp.hpl.jena</groupId>
-      <artifactId>jena</artifactId>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-core</artifactId>
       <classifier>tests</classifier>
       <version>${ver.jena}</version>
       <scope>test</scope>
