@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -32,7 +32,7 @@ public class TestChannelFile extends AbstractTestChannel
     @AfterClass public static void cleanup() { FileOps.deleteSilent(filename) ; } 
     
     @Override
-    protected BufferChannel make()
+    protected BufferChannel open()
     {
         FileOps.deleteSilent(filename) ;
         return new BufferChannelFile(filename) ;

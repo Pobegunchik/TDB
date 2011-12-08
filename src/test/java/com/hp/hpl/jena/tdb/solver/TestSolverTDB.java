@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -59,7 +59,7 @@ public class TestSolverTDB extends BaseTest
 
     @BeforeClass static public void beforeClass()
     { 
-        graph = TDBFactory.createGraph() ;
+        graph = TDBFactory.createDatasetGraph().getDefaultGraph() ;
         Model m = ModelFactory.createModelForGraph(graph) ;
         FileManager.get().readModel(m, graphData) ;
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,18 +18,18 @@
 
 package com.hp.hpl.jena.tdb.store;
 
-import org.junit.Test;
+import org.junit.Test ;
 import org.openjena.atlas.junit.BaseTest ;
 
-import com.hp.hpl.jena.query.*;
-import com.hp.hpl.jena.rdf.model.Model;
-import com.hp.hpl.jena.rdf.model.ModelFactory;
-import com.hp.hpl.jena.rdf.model.Property;
-import com.hp.hpl.jena.rdf.model.Resource;
-import com.hp.hpl.jena.sparql.core.Quad;
-import com.hp.hpl.jena.tdb.TDB;
-import com.hp.hpl.jena.tdb.TDBFactory;
-import com.hp.hpl.jena.util.FileManager;
+import com.hp.hpl.jena.query.* ;
+import com.hp.hpl.jena.rdf.model.Model ;
+import com.hp.hpl.jena.rdf.model.ModelFactory ;
+import com.hp.hpl.jena.rdf.model.Property ;
+import com.hp.hpl.jena.rdf.model.Resource ;
+import com.hp.hpl.jena.sparql.core.Quad ;
+import com.hp.hpl.jena.tdb.TDB ;
+import com.hp.hpl.jena.tdb.TDBFactory ;
+import com.hp.hpl.jena.util.FileManager ;
 
 /** Tests of datasets, prefixes, special URIs etc (see also {@link com.hp.hpl.jena.sparql.graph.GraphsTests} */
 public class TestDatasetTDB extends BaseTest
@@ -211,7 +211,7 @@ public class TestDatasetTDB extends BaseTest
         Model m = ds.getNamedModel("http://example/graph2") ;
         
         // Use graph2 as default model.
-        DataSource ds2 = DatasetFactory.create() ;
+        Dataset ds2 = DatasetFactory.createMem() ;
         ds2.setDefaultModel(ds.getNamedModel("http://example/graph2")) ;
         
         String qs = "CONSTRUCT {?s ?p ?o } WHERE { ?s ?p ?o}" ;
@@ -230,7 +230,7 @@ public class TestDatasetTDB extends BaseTest
         Model m = ds.getNamedModel("http://example/graph2") ;
         
         // Use graph1 as a differently named model.
-        DataSource ds2 = DatasetFactory.create() ;
+        Dataset ds2 = DatasetFactory.createMem() ;
         ds2.addNamedModel("http://example/graphOther", m) ;
         
         String qs = "CONSTRUCT {?s ?p ?o } WHERE { {?s ?p ?o} UNION { GRAPH <http://example/graphOther> {?s ?p ?o} } }" ;
@@ -249,7 +249,7 @@ public class TestDatasetTDB extends BaseTest
         Model m = ds.getDefaultModel() ;
         
         // Use the default model in one dataset as a named model in another.
-        DataSource ds2 = DatasetFactory.create() ;
+        Dataset ds2 = DatasetFactory.createMem() ;
         ds2.addNamedModel("http://example/graphOther", m) ;
         
         String qs = "CONSTRUCT {?s ?p ?o } WHERE { {?s ?p ?o} UNION { GRAPH <http://example/graphOther> {?s ?p ?o} } }" ;

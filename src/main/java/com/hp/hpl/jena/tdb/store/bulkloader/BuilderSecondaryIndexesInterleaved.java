@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,11 +21,11 @@ package com.hp.hpl.jena.tdb.store.bulkloader;
 import com.hp.hpl.jena.sparql.util.Timer ;
 import com.hp.hpl.jena.tdb.index.TupleIndex ;
 
-class BuilderSecondaryIndexesInterleaved implements BuilderSecondaryIndexes
+public class BuilderSecondaryIndexesInterleaved implements BuilderSecondaryIndexes
 {
     private LoadMonitor monitor ;
 
-    BuilderSecondaryIndexesInterleaved(LoadMonitor monitor) { this.monitor = monitor ; } 
+    public BuilderSecondaryIndexesInterleaved(LoadMonitor monitor) { this.monitor = monitor ; } 
     
     // Do as one pass over the SPO index, creating both other indexes at the same time.
     // Can be hugely costly in system resources.

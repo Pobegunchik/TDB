@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -133,6 +133,8 @@ public class SystemTDB
         if ( propertyFileName == null )
             propertyFileName = System.getProperty(propertyFileKey2) ;
     }
+    
+    public static final boolean is64bitSystem = determineIf64Bit() ;
 
     private static Properties properties = readPropertiesFile() ;
 
@@ -175,7 +177,7 @@ public class SystemTDB
      *  Used to map from NodeId to Node spaces.
      *  Used for retriveing results.
      */
-    public static final int NodeId2NodeCacheSize    = intValue("NodeId2NodeCacheSize", 100*1000) ;
+    public static final int NodeId2NodeCacheSize    = intValue("NodeId2NodeCacheSize", ( is64bitSystem ? 500*1000 : 100*1000 ) ) ;
 
     /** Size of the delayed-write block cache (32 bit systems only) (per file) */
     public static final int BlockWriteCacheSize     = intValue("BlockWriteCacheSize", 2*1000) ;
@@ -188,7 +190,7 @@ public class SystemTDB
 //    /** Number of adds/deletes between calls to sync (-ve to disable) */
 //    public static final int SyncTick                = intValue("SyncTick", -1) ;
 
-    // SystemTDB.chooseOptimizer
+    // SetupTDB.chooseOptimizer
     public static ReorderTransformation defaultOptimizer = ReorderLib.fixed() ;
 
     public static final ByteOrder NetworkOrder      = ByteOrder.BIG_ENDIAN ;
@@ -294,8 +296,6 @@ public class SystemTDB
     		return false ;
     	return s.startsWith("Windows ") ;
 	}
-
-    public static final boolean is64bitSystem = determineIf64Bit() ;
 
     private static boolean determineIf64Bit()
     {

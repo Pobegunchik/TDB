@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -181,7 +181,7 @@ public class BulkLoader
         return destination(dsg, ntt2, showProgress) ;
     }
 
-    private static LoadMonitor createLoadMonitor(DatasetGraphTDB dsg, String itemName, boolean showProgress)
+    public static LoadMonitor createLoadMonitor(DatasetGraphTDB dsg, String itemName, boolean showProgress)
     {
         if ( showProgress ) 
             return new LoadMonitor(dsg, loadLogger, itemName, DataTickPoint, IndexTickPoint) ;

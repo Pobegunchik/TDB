@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -37,11 +37,11 @@ import org.slf4j.LoggerFactory ;
 
 import com.hp.hpl.jena.datatypes.xsd.XSDDatatype ;
 import com.hp.hpl.jena.graph.Node ;
+import com.hp.hpl.jena.query.ReadWrite ;
 import com.hp.hpl.jena.sparql.core.Quad ;
 import com.hp.hpl.jena.sparql.sse.SSE ;
 import com.hp.hpl.jena.tdb.ConfigTest ;
 import com.hp.hpl.jena.tdb.DatasetGraphTxn ;
-import com.hp.hpl.jena.tdb.ReadWrite ;
 import com.hp.hpl.jena.tdb.StoreConnection ;
 import com.hp.hpl.jena.tdb.base.block.FileMode ;
 import com.hp.hpl.jena.tdb.base.file.Location ;
@@ -68,7 +68,7 @@ public class T_TransSystem
             log.error("**** Running with file mapped mode on MS Windows - expected test failure") ;
     }
     
-    static boolean MEM = false ;
+    static boolean MEM = true ;
     
     static final Location LOC = MEM ? Location.mem() : new Location(ConfigTest.getTestingDirDB()) ;
 
@@ -77,11 +77,6 @@ public class T_TransSystem
     static boolean inlineProgress           = true ; // (! log.isDebugEnabled()) && Iterations > 20 ;
     static boolean logging                  = ! inlineProgress ; // (! log.isDebugEnabled()) && Iterations > 20 ;
     
-    /*
-     * 5/0/5 blocks. with 50/50 pause, 50R/ 20W
-     * Others?
-     */
-
     static final int numReaderTasks         = 5 ;
     static final int numWriterTasksA        = 2 ; 
     static final int numWriterTasksC        = 5 ;
@@ -92,8 +87,11 @@ public class T_TransSystem
     static final int writerAbortSeqRepeats  = 4 ;
     static final int writerCommitSeqRepeats = 4 ;
     static final int writerMaxPause         = 20 ;
+
+    static final int numTreadsInPool        = 8 ;           // If <= 0 then use an unbounded thread pool.   
+    private static ExecutorService execService = null ;
     
-    public static void main(String...args)
+    public static void main(String...args) throws InterruptedException
     {
         String x = (MEM?"memory":"disk["+SystemTDB.fileMode()+"]") ;
         
@@ -109,6 +107,10 @@ public class T_TransSystem
         for ( i = 0 ; i < Iterations ; i++ )
         {
             clean() ;
+
+            execService = ( numTreadsInPool > 0 ) 
+                ? Executors.newFixedThreadPool(numTreadsInPool)
+                : Executors.newCachedThreadPool() ;
             
             if (!inlineProgress && logging)
                 log.info(format("Iteration: %d\n", i)) ;
@@ -121,6 +123,10 @@ public class T_TransSystem
                     println() ;
             }
             new T_TransSystem().manyReaderAndOneWriter() ;
+            execService.shutdown() ;
+            if ( ! execService.awaitTermination(10, TimeUnit.SECONDS) )
+                System.err.println("Shutdown didn;'t complete in time") ;
+
         }
         if ( inlineProgress )
         {
@@ -137,9 +143,11 @@ public class T_TransSystem
     
     private static void clean()
     {
-        StoreConnection.release(LOC) ;
         if ( ! LOC.isMem() )
+        {
+            StoreConnection.release(LOC) ;
             FileOps.clearDirectory(LOC.getDirectoryPath()) ;
+        }
     }
 
     static class Reader implements Callable<Object>
@@ -154,7 +162,7 @@ public class T_TransSystem
             this.maxpause = pause ;
             this.sConn = sConn ;
         }
-    
+
         @Override
         public Object call()
         {
@@ -173,7 +181,7 @@ public class T_TransSystem
                     if (x1 != x2) log.warn(format("READER: %s Change seen: %d/%d : id=%d: i=%d",
                                                   dsg.getTransaction().getLabel(), x1, x2, id, i)) ;
                     log.debug("reader finish " + id + "/" + i) ;
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -183,7 +191,7 @@ public class T_TransSystem
                 if ( dsg != null )
                 {
                     dsg.abort() ;
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -205,7 +213,7 @@ public class T_TransSystem
             this.sConn = sConn ;
             this.commit = commit ;
         }
-        
+
         @Override
         public Object call()
         {
@@ -229,7 +237,7 @@ public class T_TransSystem
                         log.warn(format("WRITER: %s Change seen: %d + %d != %d : id=%d: i=%d", label, x1, z, x2, id, i)) ;
                         log.warn(state.toString()) ;
                         dsg.abort() ;
-                        dsg.close() ;
+                        dsg.end() ;
                         dsg = null ;
                         return null ;
                     }
@@ -240,7 +248,7 @@ public class T_TransSystem
                     SysTxnState state = sConn.getTransMgrState() ;
                     log.debug(state.toString()) ;
                     log.debug("writer finish "+id+"/"+i) ;                
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -252,7 +260,7 @@ public class T_TransSystem
                 if ( dsg != null )
                 {
                     dsg.abort() ;
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -275,7 +283,7 @@ public class T_TransSystem
         dsg.add(q2) ;
         initCount = 2 ;
         dsg.commit() ;
-        dsg.close() ;
+        dsg.end() ;
     }
     
     @AfterClass 
@@ -333,9 +341,9 @@ public class T_TransSystem
             }
         } ;
 
-        submit(execService, procR,   numReaderTasks) ;
-        submit(execService, procW_c, numWriterTasksC) ;
-        submit(execService, procW_a, numWriterTasksA) ;
+        submit(execService, procR,   numReaderTasks, "READ-") ;
+        submit(execService, procW_c, numWriterTasksC, "COMMIT-") ;
+        submit(execService, procW_a, numWriterTasksA, "ABORT-") ;
         
         try
         {
@@ -347,10 +355,25 @@ public class T_TransSystem
         } 
     }
 
-    private void submit(ExecutorService execService2, Callable<?> proc, int numTasks)
+    static class Callable2Runnable<T> implements Runnable
+    {
+        private Callable<T> callable ;
+
+        Callable2Runnable(Callable<T> callable) { this.callable = callable ; }
+        
+        @Override public void run() { try { callable.call() ; } catch (Exception ex) {} }
+    }
+    
+    private static int counter = 0 ;
+    private <T> void submit(ExecutorService execService, Callable<T> proc, int numTasks, String label)
     {
         for ( int i = 0 ; i < numTasks ; i++ )
+        {
             execService.submit(proc) ;
+//            counter++ ;
+//            Thread t = new Thread(new Callable2Runnable<T>(proc), label+counter) ;
+//            t.start();
+        }
     }
 
     static int changeProc(DatasetGraphTxn dsg, int id, int i)
@@ -398,8 +421,6 @@ public class T_TransSystem
     {
         System.out.printf(string, args) ;
     }
-
-    private ExecutorService execService = Executors.newCachedThreadPool() ;
 
     static Quad q  = SSE.parseQuad("(_ <s> <p> <o>) ") ;
 

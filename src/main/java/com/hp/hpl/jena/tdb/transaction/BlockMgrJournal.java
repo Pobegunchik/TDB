@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -28,6 +28,7 @@ import org.openjena.atlas.logging.Log ;
 import org.slf4j.Logger ;
 import org.slf4j.LoggerFactory ;
 
+import com.hp.hpl.jena.query.ReadWrite ;
 import com.hp.hpl.jena.tdb.base.block.Block ;
 import com.hp.hpl.jena.tdb.base.block.BlockException ;
 import com.hp.hpl.jena.tdb.base.block.BlockMgr ;
@@ -45,11 +46,13 @@ public class BlockMgrJournal implements BlockMgr, TransactionLifecycle
     final private Map<Long, Block> writeBlocks = new HashMap<Long, Block>() ;
     final private Map<Long, Block> freedBlocks = new HashMap<Long, Block>() ;
     private boolean closed = false ;
-    private boolean active = false ;
     
     public BlockMgrJournal(Transaction txn, FileRef fileRef, BlockMgr underlyingBlockMgr)
     {
         reset(txn, fileRef, underlyingBlockMgr) ;
+        if ( txn.getMode() == ReadWrite.READ &&  underlyingBlockMgr instanceof BlockMgrJournal )
+            System.err.println("Two level BlockMgrJournal") ;
+        
     }
 
     @Override
@@ -302,7 +305,8 @@ public class BlockMgrJournal implements BlockMgr, TransactionLifecycle
     {
         checkIfClosed() ; 
         transaction.addIterator(iterator) ;
-        blockMgr.beginIterator(iterator) ;
+        // Don't pass down the beginIterator call - we track and manage here, not lower down.  
+        //blockMgr.beginIterator(iterator) ;
     }
 
     @Override
@@ -310,7 +314,8 @@ public class BlockMgrJournal implements BlockMgr, TransactionLifecycle
     {
         checkIfClosed() ; 
         transaction.removeIterator(iterator) ;
-        blockMgr.endIterator(iterator) ;
+        // Don't pass down the beginIterator call - we track and manage here, not lower down.  
+        //blockMgr.endIterator(iterator) ;
     }
 
     @Override

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,12 +18,12 @@
 
 package com.hp.hpl.jena.tdb.transaction;
 
-import static com.hp.hpl.jena.tdb.ReadWrite.READ ;
-import static com.hp.hpl.jena.tdb.transaction.TransactionManager.TxnPoint.* ;
-import static com.hp.hpl.jena.tdb.ReadWrite.WRITE ;
 import static com.hp.hpl.jena.tdb.sys.SystemTDB.syslog ;
+import static com.hp.hpl.jena.tdb.transaction.TransactionManager.TxnPoint.BEGIN ;
+import static com.hp.hpl.jena.tdb.transaction.TransactionManager.TxnPoint.CLOSE ;
 import static java.lang.String.format ;
 
+import java.io.File ;
 import java.util.ArrayList ;
 import java.util.HashSet ;
 import java.util.List ;
@@ -38,9 +38,9 @@ import org.openjena.atlas.logging.Log ;
 import org.slf4j.Logger ;
 import org.slf4j.LoggerFactory ;
 
+import com.hp.hpl.jena.query.ReadWrite ;
 import com.hp.hpl.jena.shared.Lock ;
 import com.hp.hpl.jena.tdb.DatasetGraphTxn ;
-import com.hp.hpl.jena.tdb.ReadWrite ;
 import com.hp.hpl.jena.tdb.store.DatasetGraphTDB ;
 import com.hp.hpl.jena.tdb.sys.SystemTDB ;
 
@@ -193,11 +193,16 @@ public class TransactionManager
         {
             txn.getBaseDataset().getLock().leaveCriticalSection() ;
 
+            // This is so important, it shouldn't be in a TSM.
             if ( activeReaders.get() == 0 )
             {
                 // Can commit immediately.
                 // Ensure the queue is empty though.
                 // Could simply add txn to the commit queue and do it that way.  
+                if ( log() ) log("Commit immediately", txn) ; 
+                
+                // Right after reply?
+                
                 processDelayedReplayQueue(txn) ;
                 enactTransaction(txn) ;
                 JournalControl.replay(txn) ;
@@ -207,7 +212,7 @@ public class TransactionManager
                 // Can't write back to the base database at the moment.
                 commitedAwaitingFlush.add(txn) ;
                 maxQueue = Math.max(commitedAwaitingFlush.size(), maxQueue) ;
-                log("Queue commit flush", txn) ; 
+                if ( log() ) log("Add to pending queue", txn) ; 
                 queue.add(txn) ;
             }
         }
@@ -249,7 +254,7 @@ public class TransactionManager
         new TSM_Counters() ,           // Must be first.
         new TSM_Logger() ,
         (recordHistory ? new TSM_Record() : null ) ,
-        new TSM_WriteBackEndTxn()        // Write back policy.
+        new TSM_WriteBackEndTxn()        // Write back policy. Must be last.
     } ;
     
     public TransactionManager(DatasetGraphTDB dsg)
@@ -300,6 +305,8 @@ public class TransactionManager
         // entry synchronized part
         return begin$(mode, label) ;
     }
+    
+    public static boolean DEBUG = false ; 
         
     synchronized
     private DatasetGraphTxn begin$(ReadWrite mode, String label)
@@ -313,17 +320,32 @@ public class TransactionManager
 //            //   create new transaction 
 //        }
         
-        if ( mode == WRITE && activeWriters.get() > 0 )    // Guard
+        if ( mode == ReadWrite.WRITE && activeWriters.get() > 0 )    // Guard
             throw new TDBTransactionException("Existing active write transaction") ;
 
+        if ( DEBUG ) 
+            switch ( mode )
+            {
+                case READ : System.out.print("r") ; break ;
+                case WRITE : System.out.print("w") ; break ;
+            }
+        
         // Even flush queue here.
         
         DatasetGraphTDB dsg = baseDataset ;
         // *** But, if there are pending, committed transactions, use latest.
         if ( ! commitedAwaitingFlush.isEmpty() )
+        {  if ( DEBUG ) System.out.print(commitedAwaitingFlush.size()) ;
             dsg = commitedAwaitingFlush.get(commitedAwaitingFlush.size()-1).getActiveDataset() ;
-        
+        }
+        else 
+        {
+            if ( DEBUG ) System.out.print('_') ;
+        }
         Transaction txn = createTransaction(dsg, mode, label) ;
+        
+        log("begin$", txn) ;
+        
         DatasetGraphTxn dsgTxn = (DatasetGraphTxn)new DatasetBuilderTxn(this).build(txn, mode, dsg) ;
         txn.setActiveDataset(dsgTxn) ;
 
@@ -371,19 +393,19 @@ public class TransactionManager
         }
     }
     
-    /** The stage in a commit after commiting - make the changes permanent in the base data */ 
+    /** The stage in a commit after committing - make the changes permanent in the base data */ 
     private void enactTransaction(Transaction transaction)
     {
-        // Flush the queue first.  Happens in Transaction.commit
         // Really, really do it!
         for ( TransactionLifecycle x : transaction.components() )
         {
             x.commitEnact(transaction) ;
             x.commitClearup(transaction) ;
         }
+        transaction.signalEnacted() ;
     }
 
-    void processDelayedReplayQueue(Transaction txn)
+    private void processDelayedReplayQueue(Transaction txn)
     {
         // Sync'ed by notifyCommit.
         // If we knew which version of the DB each was looking at, we could reduce more often here.
@@ -391,16 +413,26 @@ public class TransactionManager
         if ( activeReaders.get() != 0 || activeWriters.get() != 0 )
         {
             if ( queue.size() > 0 && log() )
-            {
-                if ( txn != null )
-                    log(format("Pending transactions: R=%s / W=%s", activeReaders, activeWriters), txn) ;
-                else
-                    logger().debug(format("Pending transactions: R=%s / W=%s", activeReaders, activeWriters)) ;
-            }
+                log(format("Pending transactions: R=%s / W=%s", activeReaders, activeWriters), txn) ;
             return ;
         }
-//        if ( queue.size() > 1 )
-//            System.out.println("\nQuery length: "+queue.size()) ;
+
+        if ( DEBUG )
+        {
+            if ( queue.size() > 0 ) 
+                System.out.print("!"+queue.size()+"!") ;
+            
+        }
+        
+        if ( log() )
+            log("Start flush delayed commits", txn) ;
+        
+        if ( DEBUG ) checkNodesDatJrnl("1", txn) ;
+        
+        if ( queue.size() == 0 && txn != null )
+            // Nothing to do - journal should be empty. 
+            return ;
+        
         while ( queue.size() > 0 )
         {
             // Currently, replay is replay everything
@@ -409,28 +441,45 @@ public class TransactionManager
             
             try {
                 Transaction txn2 = queue.take() ;
-                if ( txn2.getMode() == READ )
+                if ( txn2.getMode() == ReadWrite.READ )
                     continue ;
-                log("Flush delayed commit", txn2) ;
-                // This takes a Write lock on the  DSG - this is where it blocks.
-                // **** Related NodeFileTrans: writes at "prepare" 
+                if ( log() )
+                    log("Flush delayed commit of "+txn2.getLabel(), txn) ;
+                if ( DEBUG ) checkNodesDatJrnl("2", txn) ;
                 checkReplaySafe() ;
                 enactTransaction(txn2) ;
                 commitedAwaitingFlush.remove(txn2) ;
-                
-                // Drain queue - in fact, everything is done by one "enactTransaction"
-                
             } catch (InterruptedException ex)
             { Log.fatal(this, "Interruped!", ex) ; }
         }
+
         checkReplaySafe() ;
+        if ( DEBUG ) checkNodesDatJrnl("3", txn) ;
 
         // Whole journal to base database
         JournalControl.replay(journal, baseDataset) ;
+
+        if ( DEBUG ) checkNodesDatJrnl("4", txn) ;
         
         checkReplaySafe() ;
+        if ( log() )
+            log("End flush delayed commits", txn) ;
+        
+        
+        
     }
 
+    private static void checkNodesDatJrnl(String label, Transaction txn)
+    {
+        if (txn != null)
+        {
+            String x = txn.getBaseDataset().getLocation().getPath(label+": nodes.dat-jrnl") ;
+            long len = new File(x).length() ;
+            if (len != 0)
+                log("nodes.dat-jrnl: not empty", txn) ;
+        }   
+    }
+    
     private void checkReplaySafe()
     {
         if ( ! checking ) return ;
@@ -520,19 +569,22 @@ public class TransactionManager
         return journal ;
     }
 
-    private boolean log()
+    private static boolean log()
     {
         return syslog.isDebugEnabled() || log.isDebugEnabled() ;
     }
     
-    private void log(String msg, Transaction txn)
+    private static void log(String msg, Transaction txn)
     {
         if ( ! log() )
             return ;
-        logger().debug(txn.getLabel()+": "+msg) ;
+        if ( txn == null )
+            logger().debug("<No txn>: "+msg) ;
+        else
+            logger().debug(txn.getLabel()+": "+msg) ;
     }
 
-    private Logger logger()
+    private static Logger logger()
     {
         if ( syslog.isDebugEnabled() )
             return syslog ;

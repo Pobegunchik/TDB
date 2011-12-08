@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -40,19 +40,19 @@ import org.slf4j.LoggerFactory ;
 
 import com.hp.hpl.jena.datatypes.xsd.XSDDatatype ;
 import com.hp.hpl.jena.graph.Node ;
-import com.hp.hpl.jena.shared.Lock;
-import com.hp.hpl.jena.sparql.core.DatasetGraph;
+import com.hp.hpl.jena.query.ReadWrite ;
+import com.hp.hpl.jena.shared.Lock ;
+import com.hp.hpl.jena.sparql.core.DatasetGraph ;
 import com.hp.hpl.jena.sparql.core.Quad ;
 import com.hp.hpl.jena.sparql.sse.SSE ;
 import com.hp.hpl.jena.tdb.ConfigTest ;
 import com.hp.hpl.jena.tdb.DatasetGraphTxn ;
-import com.hp.hpl.jena.tdb.ReadWrite ;
 import com.hp.hpl.jena.tdb.StoreConnection ;
-import com.hp.hpl.jena.tdb.TDBFactory;
+import com.hp.hpl.jena.tdb.TDBFactory ;
 import com.hp.hpl.jena.tdb.base.block.FileMode ;
 import com.hp.hpl.jena.tdb.base.file.Location ;
 import com.hp.hpl.jena.tdb.sys.SystemTDB ;
-import com.hp.hpl.jena.tdb.sys.TDBMaker;
+import com.hp.hpl.jena.tdb.sys.TDBMaker ;
 
 /** System testing using multiple datasets of the transactions. */
 public class T_TransSystemMultiDatasets
@@ -179,7 +179,7 @@ public class T_TransSystemMultiDatasets
                     if (x1 != x2) log.warn(format("READER: %s Change seen: %d/%d : id=%d: i=%d",
                                                   dsg.getTransaction().getLabel(), x1, x2, id, i)) ;
                     log.debug("reader finish " + id + "/" + i) ;
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -189,7 +189,7 @@ public class T_TransSystemMultiDatasets
                 if ( dsg != null )
                 {
                     dsg.abort() ;
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -236,7 +236,7 @@ public class T_TransSystemMultiDatasets
                         log.warn(format("WRITER: %s Change seen: %d + %d != %d : id=%d: i=%d", label, x1, z, x2, id, i)) ;
                         log.warn(state.toString()) ;
                         dsg.abort() ;
-                        dsg.close() ;
+                        dsg.end() ;
                         dsg = null ;
                         return null ;
                     }
@@ -247,7 +247,7 @@ public class T_TransSystemMultiDatasets
                     SysTxnState state = sConn.getTransMgrState() ;
                     log.debug(state.toString()) ;
                     log.debug("writer finish "+id+"/"+i) ;                
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;
@@ -258,7 +258,7 @@ public class T_TransSystemMultiDatasets
                 if ( dsg != null )
                 {
                     dsg.abort() ;
-                    dsg.close() ;
+                    dsg.end() ;
                     dsg = null ;
                 }
                 return null ;

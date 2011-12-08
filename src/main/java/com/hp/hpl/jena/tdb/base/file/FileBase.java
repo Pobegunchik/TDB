@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,45 +19,79 @@
 package com.hp.hpl.jena.tdb.base.file;
 
 import java.io.IOException ;
-import java.io.RandomAccessFile ;
 import java.nio.channels.FileChannel ;
 
+import org.openjena.atlas.io.IO ;
 import org.openjena.atlas.lib.Closeable ;
 import org.openjena.atlas.lib.Sync ;
+import org.slf4j.Logger ;
+import org.slf4j.LoggerFactory ;
 
-import com.hp.hpl.jena.tdb.base.block.BlockException ;
-
-public class FileBase implements Sync, Closeable
+public final class FileBase implements Sync, Closeable
 {
+    static private Logger log = LoggerFactory.getLogger(FileBase.class) ; 
+    // A mixin, which java does not support very well.
     public final String filename ;
-    public final FileChannel channel ;
-    public final RandomAccessFile out ;
+    private FileChannel channel ;
+    public static boolean DEBUG = false ;
+    private final boolean DebugThis  ;
+    private static long counter = 0 ;
+    private final long id ;
 
-    public FileBase(String filename)
+    static FileBase create(String filename) { return new FileBase(filename) ; }
+    static FileBase create(String filename, String mode) { return new FileBase(filename, mode) ; }
+    
+    private /*public*/ FileBase(String filename)
     {
+        this(filename, "rw") ;
+    }
+    
+    private /*public*/ FileBase(String filename, String mode)
+    {
+        DebugThis = DEBUG && filename.contains("nodes.dat-jrnl") ;
+        id  = (counter++) ;
+        
+        if ( DebugThis )
+            log.debug("open: ["+id+"]"+filename) ;
         this.filename = filename ;
+        channel = ChannelManager.acquire(filename, mode) ;
+    }
+    
+    public final FileChannel channel() { return channel ; }
+    
+    public long size()
+    {
         try {
-            // "rwd" - Syncs only the file contents
-            // "rws" - Syncs the file contents and metadata
-            // "rw" - cached?
-            out = new RandomAccessFile(filename, "rw") ;
-            channel = out.getChannel() ;
-        } catch (IOException ex) { throw new BlockException("Failed to create FileBase", ex) ; } 
+            return channel.size() ;
+        } catch (IOException ex)
+        { IO.exception(ex) ; return -1L ; }
     }
 
+    public boolean isClosed()
+    {
+        return channel == null ;
+    }
+
+    
     @Override
     public void close()
     {
-        try {
-            channel.close() ;
-        } catch (IOException ex)
-        { throw new FileException("FileBase.close", ex) ; }
-
+        if ( DebugThis )
+            log.debug("close: ["+id+"]: "+filename) ;
+        ChannelManager.release(channel) ;
+        channel = null ;
+//        try {
+//            channel.close() ;
+//            channel = null ;
+//        } catch (IOException ex)
+//        { throw new FileException("FileBase.close", ex) ; }
     }
 
     @Override
     public void sync()
     {
+        if ( DebugThis ) 
+            log.debug("sync: ["+id+"]: "+filename) ;
         try {
             channel.force(false) ;
         } catch (IOException ex)

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -33,7 +33,7 @@ public class BlockMgrWrapper implements BlockMgr
     /** Set another BlockMgr as the target of the wrapper - return the old one */ 
     protected final BlockMgr setBlockMgr(BlockMgr blockMgr)
     {
-        BlockMgr old = blockMgr ;
+        BlockMgr old = this.blockMgr ;
         this.blockMgr = blockMgr ;
         return old ;
     }

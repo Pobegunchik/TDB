@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -45,7 +45,7 @@ public class TestBulkUpdateTDB extends BaseTest
     
     private static Graph create()
     {
-        Graph g = TDBFactory.createGraph() ;
+        Graph g = TDBFactory.createDatasetGraph().getDefaultGraph() ;
         return g ;
     }
     

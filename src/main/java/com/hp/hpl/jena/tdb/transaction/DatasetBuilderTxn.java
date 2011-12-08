@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,8 +20,8 @@ package com.hp.hpl.jena.tdb.transaction ;
 
 import java.util.Map ;
 
+import com.hp.hpl.jena.query.ReadWrite ;
 import com.hp.hpl.jena.tdb.DatasetGraphTxn ;
-import com.hp.hpl.jena.tdb.ReadWrite ;
 import com.hp.hpl.jena.tdb.TDBException ;
 import com.hp.hpl.jena.tdb.base.block.BlockMgr ;
 import com.hp.hpl.jena.tdb.base.block.BlockMgrLogger ;
@@ -130,7 +130,7 @@ public class DatasetBuilderTxn
                 objectFile = FileFactory.createObjectFileDisk(objFilename) ;
 
             NodeTableTrans ntt = new NodeTableTrans(txn ,fsObjectFile.getBasename(), ntBase, idx, objectFile) ;
-            txn.add(ntt) ;
+            txn.addComponent(ntt) ;
             
             // Add inline wrapper.
             NodeTable nt = NodeTableInline.create(ntt) ;
@@ -149,7 +149,7 @@ public class DatasetBuilderTxn
             if ( baseMgr == null )
                 throw new TDBException("No BlockMgr for "+ref) ;
             BlockMgrJournal blkMgr = new BlockMgrJournal(txn, ref, baseMgr) ;
-            txn.add(blkMgr) ;
+            txn.addComponent(blkMgr) ;
             return blkMgr ;
         }
     }

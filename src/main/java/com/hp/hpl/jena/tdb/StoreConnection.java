@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,8 +19,11 @@
 package com.hp.hpl.jena.tdb;
 
 import java.util.HashMap ;
+import java.util.HashSet ;
 import java.util.Map ;
+import java.util.Set ;
 
+import com.hp.hpl.jena.query.ReadWrite ;
 import com.hp.hpl.jena.sparql.mgt.ARQMgt ;
 import com.hp.hpl.jena.tdb.base.file.Location ;
 import com.hp.hpl.jena.tdb.setup.DatasetBuilderStd ;
@@ -30,8 +33,8 @@ import com.hp.hpl.jena.tdb.transaction.JournalControl ;
 import com.hp.hpl.jena.tdb.transaction.SysTxnState ;
 import com.hp.hpl.jena.tdb.transaction.TDBTransactionException ;
 import com.hp.hpl.jena.tdb.transaction.Transaction ;
-import com.hp.hpl.jena.tdb.transaction.TransactionManager ;
 import com.hp.hpl.jena.tdb.transaction.TransactionInfo ;
+import com.hp.hpl.jena.tdb.transaction.TransactionManager ;
 
 
 /** Interface to the TDB transaction mechanism. */ 
@@ -91,7 +94,9 @@ public class StoreConnection
     /** Stop managing all locations. */  
     public static synchronized void reset() 
     {
-        for ( Location loc : cache.keySet() )
+        // Copy to avoid potential CME.
+        Set<Location> x = new HashSet<Location>(cache.keySet()) ;
+        for ( Location loc : x )
             expel(loc, true) ;
         cache.clear() ;
     }
@@ -114,7 +119,7 @@ public class StoreConnection
         cache.remove(location) ;
     }
     
-    /** Return a StoreConnection for a particular conenction.  
+    /** Return a StoreConnection for a particular connection.  
      * This is used to create transactions for the database at the location.
      */ 
     public static synchronized StoreConnection make(Location location)
@@ -133,4 +138,12 @@ public class StoreConnection
         }
         return sConn ; 
     }
+    
+    /** Return a StoreConnection backed by in-memory datastructures (for testing).
+     */ 
+    public static StoreConnection createMemUncached()
+    {
+        return new StoreConnection(Location.mem()) ;
+    }
+    
 }
